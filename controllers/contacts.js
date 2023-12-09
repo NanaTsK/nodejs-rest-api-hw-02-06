@@ -1,6 +1,5 @@
 const contacts = require("../models/contacts");
 const { ctrlWrapper, HttpError } = require("../helpers");
-// const { nanoid } = require("nanoid");
 
 const listContacts = async (req, res, next) => {
 	const allContacts = await contacts.listContacts();
@@ -15,13 +14,6 @@ const getContactById = async (req, res, next) => {
 	}
 	res.status(200).json(contact);
 };
-
-// const addContact = async (req, res, next) => {
-// 	const { name, email, phone } = req.body;
-// 	const newContact = { id: nanoid(), name, email, phone };
-// 	const createdContact = await contacts.addContact(newContact);
-// 	res.status(201).json(createdContact);
-// };
 
 const addContact = async (req, res, next) => {
 	const createdContact = await contacts.addContact(req.body);
