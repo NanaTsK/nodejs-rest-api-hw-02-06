@@ -29,7 +29,7 @@ const addSchema = Joi.object({
 	favorite: Joi.boolean(),
 });
 const updateSchema = Joi.object({
-	favorite: Joi.boolean(),
+	favorite: Joi.boolean().required(),
 });
 
 const schemas = {
