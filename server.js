@@ -8,8 +8,7 @@ mongoose
 	.connect(DB_HOST)
 	.then(() => {
 		app.listen(PORT, () => {
-			// console.log("Database connection successful");
-			console.log(`Server is running on port 3000`);
+			console.log(`Server running. Use our API on port: ${PORT}`);
 		});
 	})
 	.catch((err) => {

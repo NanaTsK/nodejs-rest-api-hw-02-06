@@ -71,6 +71,17 @@ const logout = async (req, res, next) => {
 	res.status(204).send();
 };
 
+const updateSubscriptionUser = async (req, res) => {
+	const { _id } = req.user;
+	const result = await User.findByIdAndUpdate(_id, req.body, { new: true });
+	if (!result) {
+		throw HttpError(404, "Not found");
+	}
+	res.status(200).json({
+		message: `Your subscription changed to ${req.body.subscription}!`,
+	});
+};
+
 const updateAvatar = async (req, res) => {
 	const { _id } = req.user;
 	if (!req.file) {
@@ -97,5 +108,6 @@ module.exports = {
 	login: ctrlWrapper(login),
 	getCurrent: ctrlWrapper(getCurrent),
 	logout: ctrlWrapper(logout),
+	updateSubscriptionUser: ctrlWrapper(updateSubscriptionUser),
 	updateAvatar: ctrlWrapper(updateAvatar),
 };

@@ -1,10 +1,6 @@
 const { Contact } = require("../models/contact");
 const { ctrlWrapper, HttpError } = require("../helpers");
 
-// const listContacts = async (req, res, next) => {
-// 	const allContacts = await Contact.find();
-// 	res.status(200).json(allContacts);
-// };
 const listContacts = async (req, res, next) => {
 	const { page = 1, limit = 20, favorite = null } = req.query;
 	const skip = (page - 1) * limit;
