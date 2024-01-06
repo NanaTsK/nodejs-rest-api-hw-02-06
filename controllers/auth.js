@@ -80,7 +80,7 @@ const verifyEmail = async (req, res) => {
 
 const resendVerifyEmail = async (req, res) => {
 	const { email } = req.body;
-	const user = await User.findOne8(email);
+	const user = await User.findOne(email);
 	if (!user) {
 		throw HttpError(404, "User not found ");
 	}
@@ -192,11 +192,11 @@ const updateAvatar = async (req, res) => {
 
 module.exports = {
 	register: ctrlWrapper(register),
+	verifyEmail: ctrlWrapper(verifyEmail),
+	resendVerifyEmail: ctrlWrapper(resendVerifyEmail),
 	login: ctrlWrapper(login),
 	getCurrent: ctrlWrapper(getCurrent),
 	logout: ctrlWrapper(logout),
 	updateSubscriptionUser: ctrlWrapper(updateSubscriptionUser),
 	updateAvatar: ctrlWrapper(updateAvatar),
-	verifyEmail: ctrlWrapper(verifyEmail),
-	resendVerifyEmail: ctrlWrapper(resendVerifyEmail),
 };
