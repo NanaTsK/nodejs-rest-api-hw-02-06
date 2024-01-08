@@ -35,8 +35,8 @@ const register = async (req, res) => {
 
 	const verifyEmail = {
 		to: email,
-		subject: "Verify email",
-		html: `<p>Please confirm your <i>Email</i></p><a href="${BASE_URL}/users/verify/${verificationToken}" target="_blank">Click verify email</a>`,
+		subject: "Confirm your email address",
+		html: `<p>Please confirm your <i>Email</i></p><a href="${BASE_URL}/users/verify/${verificationToken}" target="_blank">Click here to verify your email</a>`,
 	};
 
 	await sendEmail(verifyEmail);
@@ -70,12 +70,12 @@ const resendVerifyEmail = async (req, res) => {
 	const user = await User.findOne({ email });
 	if (!user) throw HttpError(404, "User not found");
 
-	if (user.verify) throw HttpError(400, "Email already verify");
+	if (user.verify) throw HttpError(400, "Email already verified");
 
 	const verifyEmail = {
 		to: email,
-		subject: "Verify email",
-		html: `<p>Please confirm your <i>Email</i></p><a href="${BASE_URL}/users/verify/${user.verificationToken}" target="_blank">Click verify email</a>`,
+		subject: "Confirm your email address",
+		html: `<p>Please confirm your <i>Email</i></p><a href="${BASE_URL}/users/verify/${user.verificationToken}" target="_blank">Click here to verify your email</a>`,
 	};
 
 	await sendEmail(verifyEmail);
