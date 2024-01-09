@@ -23,13 +23,13 @@ const listContacts = async (req, res, next) => {
 	res.json(result);
 };
 
-const getContactById = async (req, res, next) => {
+const getContactById = async (req, res) => {
 	const { contactId } = req.params;
-	const contact = await Contact.findById(contactId);
-	if (!contact) {
+	const contactByID = await Contact.findById(contactId);
+	if (!contactByID) {
 		throw HttpError(404, "Not found");
 	}
-	res.status(200).json(contact);
+	res.status(200).json(contactByID);
 };
 
 const addContact = async (req, res) => {

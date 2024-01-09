@@ -1,102 +1,152 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const gravatar = require("gravatar");
-const path = require("path");
-const fs = require("fs/promises");
-const { handleResizeAvatar } = require("../helpers");
+const { nanoid } = require("nanoid");
+const path = require("node:path");
+const fs = require("node:fs/promises");
 
 const { User } = require("../models/user");
-const { ctrlWrapper, HttpError } = require("../helpers");
-const { SECRET_KEY } = process.env;
+const {
+	HttpError,
+	ctrlWrapper,
+	sendEmail,
+	handleResizeAvatar,
+} = require("../helpers");
+
+const { SECRET_KEY, BASE_URL } = process.env;
 const avatarDir = path.join(__dirname, "../", "public", "avatars");
 
-const register = async (req, res, next) => {
+const register = async (req, res) => {
 	const { email, password } = req.body;
 	const user = await User.findOne({ email });
-	if (user) {
-		throw HttpError(409, "Email already in use");
-	}
-	const hashPassword = await bcrypt.hash(password, 10);
+
+	if (user) throw HttpError(409, "Email already in use");
+
+	const hashPassword = await bcrypt.hash(password, 12);
+	const verificationToken = nanoid();
 	const avatarURL = gravatar.url(email);
+
 	const newUser = await User.create({
 		...req.body,
 		password: hashPassword,
 		avatarURL,
+		verificationToken,
 	});
+
+	const verifyEmail = {
+		to: email,
+		subject: "Confirm your email address",
+		html: `<p>Please confirm your <i>Email</i></p><a href="${BASE_URL}/users/verify/${verificationToken}" target="_blank">Click here to verify your email</a>`,
+	};
+
+	await sendEmail(verifyEmail);
+
 	res.status(201).json({
-		user: {
-			email: newUser.email,
-			subscription: newUser.subscription,
-		},
+		user: { email: newUser.email, subscription: newUser.subscription },
 	});
 };
 
-const login = async (req, res, next) => {
-	const { email, password } = req.body;
-	const user = await User.findOne({ email });
+const verifyEmail = async (req, res) => {
+	const { verificationToken } = req.params;
+	const user = await User.findOne({ verificationToken });
 
-	if (!user) {
-		throw HttpError(401, "Email or password invalid");
-	}
-	const passwordCompare = await bcrypt.compare(password, user.password);
-	if (!passwordCompare) {
-		throw HttpError(401, "Email or password invalid");
-	}
+	if (!user) throw HttpError(404, "User not found!");
 
-	const payload = {
-		id: user._id,
-	};
-	const token = jwt.sign(payload, SECRET_KEY, { expiresIn: "23h" });
-	const userWithToken = await User.findByIdAndUpdate(user._id, { token });
-	res.status(200).json({
-		token,
-		user: {
-			email: userWithToken.email,
-			subscription: userWithToken.subscription,
-		},
+	if (user.verify)
+		throw HttpError(400, "Verification has already been passed");
+
+	await User.findByIdAndUpdate(user._id, {
+		verify: true,
+		verificationToken: null,
 	});
+
+	res.json({
+		message: "Verification successful!",
+	});
+};
+
+const resendVerifyEmail = async (req, res) => {
+	const { email } = req.body;
+	const user = await User.findOne({ email });
+	if (!user) throw HttpError(404, "User not found");
+
+	if (user.verify) throw HttpError(400, "Email already verified");
+
+	const verifyEmail = {
+		to: email,
+		subject: "Confirm your email address",
+		html: `<p>Please confirm your <i>Email</i></p><a href="${BASE_URL}/users/verify/${user.verificationToken}" target="_blank">Click here to verify your email</a>`,
+	};
+
+	await sendEmail(verifyEmail);
+
+	res.json({
+		message: "Verification email sent",
+	});
+};
+
+const login = async (req, res) => {
+	const user = await User.findOne({ email: req.body.email });
+
+	if (!user) throw HttpError(401, "Email or password is wrong");
+
+	if (!user.verify) throw HttpError(401, "Email not verified");
+
+	const passwordCompare = await bcrypt.compare(
+		req.body.password,
+		user.password
+	);
+
+	if (!passwordCompare) throw HttpError(401, "Email or password is wrong");
+
+	const payload = { id: user._id };
+
+	const token = jwt.sign(payload, SECRET_KEY, { expiresIn: "12h" });
+	await User.findByIdAndUpdate(user._id, { token });
+
+	res.json({
+		token,
+		user: { email: user.email, subscription: user.subscription },
+	});
+};
+
+const logout = async (req, res) => {
+	console.log(req.user);
+	await User.findByIdAndUpdate(req.user._id, { token: "" });
+	res.status(204).json();
 };
 
 const getCurrent = async (req, res) => {
-	const { email, subscription } = req.user;
-	res.status(200).json({
-		email,
-		subscription,
+	res.json({
+		email: req.user.email,
+		subscription: req.user.subscription,
 	});
 };
 
-const logout = async (req, res, next) => {
-	const { _id } = req.user;
-	await User.findByIdAndUpdate(_id, { token: "" });
-	res.status(204).send();
-};
-
 const updateSubscriptionUser = async (req, res) => {
-	const { _id } = req.user;
-	const result = await User.findByIdAndUpdate(_id, req.body, { new: true });
-	if (!result) {
-		throw HttpError(404, "Not found");
-	}
-	res.status(200).json({
+	const result = await User.findByIdAndUpdate(req.params.userId, req.body, {
+		new: true,
+	});
+	if (!result) throw HttpError(404, "Not Found!");
+	res.json({
 		message: `Your subscription changed to ${req.body.subscription}!`,
 	});
 };
 
 const updateAvatar = async (req, res) => {
+	if (!req.file) throw HttpError(400, "No file uploaded!");
+
 	const { _id } = req.user;
-	if (!req.file) {
-		throw HttpError(400, "File not found");
-	}
 	const { path: tempUpload, originalname } = req.file;
 	const filename = `${_id}_${originalname}`;
-
-	const resultUpload = path.join(avatarDir, filename);
 	const avatarURL = path.join("avatars", filename);
+	const resultUpload = path.join(avatarDir, filename);
 
 	await handleResizeAvatar(tempUpload);
+
 	await fs.rename(tempUpload, resultUpload);
 
-	await User.findByIdAndUpdate(_id, { avatarURL });
+	await User.findByIdAndUpdate(_id, { avatarURL }, { new: true });
 
 	res.json({
 		avatarURL,
@@ -105,9 +155,11 @@ const updateAvatar = async (req, res) => {
 
 module.exports = {
 	register: ctrlWrapper(register),
+	verifyEmail: ctrlWrapper(verifyEmail),
+	resendVerifyEmail: ctrlWrapper(resendVerifyEmail),
 	login: ctrlWrapper(login),
-	getCurrent: ctrlWrapper(getCurrent),
 	logout: ctrlWrapper(logout),
+	getCurrent: ctrlWrapper(getCurrent),
 	updateSubscriptionUser: ctrlWrapper(updateSubscriptionUser),
 	updateAvatar: ctrlWrapper(updateAvatar),
 };
